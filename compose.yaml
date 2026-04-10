@@ -1,0 +1,6 @@
+services:
+  mauaservicosoftware2026:
+    image: mauaservicosoftware2026
+    build:
+      context: .
+      dockerfile: ./Dockerfile
