@@ -1,5 +1,7 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 
 from app.database import engine, Base, SessionLocal
@@ -9,9 +11,11 @@ from app.seed import seed_db
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 1. Cria tabelas (idempotente — não recria se já existem)
+    # 1. Cria diretório de uploads
+    os.makedirs("/app/uploads/pets", exist_ok=True)
+    # 2. Cria tabelas (idempotente — não recria se já existem)
     Base.metadata.create_all(bind=engine)
-    # 2. Popula dados iniciais (idempotente — só insere se banco estiver vazio)
+    # 3. Popula dados iniciais (idempotente — só insere se banco estiver vazio)
     db = SessionLocal()
     try:
         seed_db(db)
@@ -53,6 +57,8 @@ app.include_router(vacinas.router, prefix="/api/v1/vacinas", tags=["Vacinas"])
 app.include_router(atividades.router, prefix="/api/v1/atividades", tags=["Atividades"])
 app.include_router(passeios.router, prefix="/api/v1/passeios", tags=["Passeios"])
 app.include_router(cuidados.router, prefix="/api/v1/cuidados", tags=["Cuidados"])
+
+app.mount("/uploads", StaticFiles(directory="/app/uploads"), name="uploads")
 
 
 @app.get("/", tags=["Health"])

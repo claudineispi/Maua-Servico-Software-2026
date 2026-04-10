@@ -82,13 +82,16 @@ class VacinaRecomendada(Base):
     __tablename__ = "vacinas_recomendadas"
 
     id = Column(Integer, primary_key=True, index=True)
-    raca_id = Column(Integer, ForeignKey("racas.id"), nullable=True)  # null = todas as raças
+    especie = Column(Enum(EspecieEnum), nullable=False)
     nome = Column(String(150), nullable=False)
     descricao = Column(Text)
-    idade_inicial_dias = Column(Integer)   # idade mínima para aplicar
-    intervalo_reforco_dias = Column(Integer)  # frequência de reforço
+    grupo = Column(String(100), nullable=False)     # ex: "V10", "Antirrábica"
+    dose = Column(Integer, nullable=False)           # 1, 2, 3...
+    idade_semanas = Column(Integer, nullable=False)  # idade recomendada em semanas
     obrigatoria = Column(Boolean, default=True)
+    reforco_anual = Column(Boolean, default=False)
 
+    raca_id = Column(Integer, ForeignKey("racas.id"), nullable=True)
     raca = relationship("Raca", back_populates="vacinas_recomendadas")
 
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, Search, PawPrint, X } from 'lucide-react'
-import { petsAPI, racasAPI } from '../services/api'
+import { petsAPI, racasAPI, API_URL } from '../services/api'
 
 function getPetEmoji(especie, porte) {
   if (especie === 'gato') return '🐱'
@@ -22,8 +22,21 @@ function PetModal({ onClose, onSave, racas }) {
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [photoFile, setPhotoFile] = useState(null)
+  const [photoPreview, setPhotoPreview] = useState(null)
 
   const handle = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
+
+  const handlePhoto = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) {
+      setError('A foto deve ter no maximo 5 MB.')
+      return
+    }
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(file))
+  }
 
   const submit = async () => {
     if (!form.nome || !form.raca_id || !form.data_nascimento) {
@@ -39,7 +52,10 @@ function PetModal({ onClose, onSave, racas }) {
         peso_kg: form.peso_kg ? parseFloat(form.peso_kg) : null,
         microchip: form.microchip || null,
       }
-      await petsAPI.create(payload)
+      const res = await petsAPI.create(payload)
+      if (photoFile) {
+        await petsAPI.uploadPhoto(res.data.id, photoFile)
+      }
       onSave()
     } catch (e) {
       setError(e.response?.data?.detail || 'Erro ao salvar pet.')
@@ -99,6 +115,25 @@ function PetModal({ onClose, onSave, racas }) {
         <div className="form-group">
           <label className="form-label">Microchip</label>
           <input className="form-input" name="microchip" value={form.microchip} onChange={handle} placeholder="Número do microchip" />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Foto do Pet</label>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhoto}
+              style={{ fontSize: '0.85rem' }} />
+            {photoPreview && (
+              <div style={{ position: 'relative' }}>
+                <img src={photoPreview} alt="Preview"
+                  style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--moss-pale)' }} />
+                <button type="button" className="btn btn-ghost btn-sm"
+                  style={{ position: 'absolute', top: -6, right: -6, padding: 0, width: 20, height: 20, borderRadius: '50%', background: 'var(--bark)', color: 'white', fontSize: '0.7rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  onClick={() => { setPhotoFile(null); setPhotoPreview(null) }}>
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="form-group">
@@ -174,8 +209,13 @@ export default function Pets() {
           <div className="card-grid">
             {filtered.map(pet => (
               <div key={pet.id} className="pet-card" onClick={() => navigate(`/pets/${pet.id}`)}>
-                <div className="pet-card-avatar" style={{ background: getAvatarBg(pet.id) }}>
-                  <span>{getPetEmoji(pet.raca?.especie, pet.raca?.porte)}</span>
+                <div className="pet-card-avatar" style={{ background: getAvatarBg(pet.id), overflow: 'hidden' }}>
+                  {pet.foto_url ? (
+                    <img src={`${API_URL}${pet.foto_url}`} alt={pet.nome}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <span>{getPetEmoji(pet.raca?.especie, pet.raca?.porte)}</span>
+                  )}
                 </div>
                 <div className="pet-card-body">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

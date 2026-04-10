@@ -4,7 +4,7 @@ Executado no startup da API, após Base.metadata.create_all.
 Idempotente: não insere dados que já existem.
 """
 from sqlalchemy.orm import Session
-from app.models.models import Raca, Cuidado
+from app.models.models import Raca, Cuidado, VacinaRecomendada
 
 RACAS = [
     {"nome": "Golden Retriever",   "especie": "cao",  "porte": "grande",  "expectativa_vida_anos": 12, "nivel_atividade": "alto",  "descricao": "Cão amigável, inteligente e dedicado. Ótimo para famílias."},
@@ -140,6 +140,58 @@ CUIDADOS_POR_RACA = {
 }
 
 
+# Calendario vacinal recomendado — Caes e Gatos (Brasil)
+CALENDARIO_VACINAL = [
+    # ── CAES — V10 ──
+    {"especie": "cao", "grupo": "V10", "dose": 1, "idade_semanas": 6,  "obrigatoria": True, "reforco_anual": True,
+     "nome": "V10 - 1a dose", "descricao": "Primeira dose da polivalente. Protege contra cinomose, parvovirose, hepatite infecciosa canina, parainfluenza, coronavirose e leptospirose."},
+    {"especie": "cao", "grupo": "V10", "dose": 2, "idade_semanas": 9,  "obrigatoria": True, "reforco_anual": True,
+     "nome": "V10 - 2a dose", "descricao": "Segunda dose da polivalente (V10). Reforco 3 semanas apos a 1a dose."},
+    {"especie": "cao", "grupo": "V10", "dose": 3, "idade_semanas": 12, "obrigatoria": True, "reforco_anual": True,
+     "nome": "V10 - 3a dose", "descricao": "Terceira e ultima dose inicial da V10. Completa a imunizacao basica do filhote."},
+    {"especie": "cao", "grupo": "V10", "dose": 4, "idade_semanas": 64, "obrigatoria": True, "reforco_anual": True,
+     "nome": "V10 - Reforco Anual", "descricao": "Dose anual de reforco. Manter por toda a vida do cao."},
+    # ── CAES — Antirrabica ──
+    {"especie": "cao", "grupo": "Antirrabica", "dose": 1, "idade_semanas": 12, "obrigatoria": True, "reforco_anual": True,
+     "nome": "Antirrabica - 1a dose", "descricao": "Vacina antirrabica, obrigatoria por lei no Brasil. Aplicada a partir de 12 semanas."},
+    {"especie": "cao", "grupo": "Antirrabica", "dose": 2, "idade_semanas": 64, "obrigatoria": True, "reforco_anual": True,
+     "nome": "Antirrabica - Reforco Anual", "descricao": "Reforco anual obrigatorio da antirrabica. Exigida por lei durante toda a vida."},
+    # ── CAES — Bordetella (Tosse dos Canis) ──
+    {"especie": "cao", "grupo": "Bordetella", "dose": 1, "idade_semanas": 8,  "obrigatoria": False, "reforco_anual": True,
+     "nome": "Bordetella - 1a dose", "descricao": "Vacina contra tosse dos canis (Bordetella bronchiseptica). Recomendada para caes em ambientes coletivos."},
+    {"especie": "cao", "grupo": "Bordetella", "dose": 2, "idade_semanas": 12, "obrigatoria": False, "reforco_anual": True,
+     "nome": "Bordetella - 2a dose", "descricao": "Segunda dose da Bordetella (protocolo injetavel). Intranasal requer dose unica."},
+    {"especie": "cao", "grupo": "Bordetella", "dose": 3, "idade_semanas": 60, "obrigatoria": False, "reforco_anual": True,
+     "nome": "Bordetella - Reforco Anual", "descricao": "Reforco anual contra tosse dos canis."},
+    # ── CAES — Giardiase ──
+    {"especie": "cao", "grupo": "Giardiase", "dose": 1, "idade_semanas": 8,  "obrigatoria": False, "reforco_anual": True,
+     "nome": "Giardiase - 1a dose", "descricao": "Vacina contra Giardia. Nota: comercializacao suspensa pelo MAPA desde maio/2023 — consulte seu veterinario."},
+    {"especie": "cao", "grupo": "Giardiase", "dose": 2, "idade_semanas": 11, "obrigatoria": False, "reforco_anual": True,
+     "nome": "Giardiase - 2a dose", "descricao": "Segunda dose da vacina contra giardiase. Aplicada 21-28 dias apos a 1a dose."},
+    # ── GATOS — V4 ──
+    {"especie": "gato", "grupo": "V4", "dose": 1, "idade_semanas": 8,  "obrigatoria": True, "reforco_anual": True,
+     "nome": "V4 - 1a dose", "descricao": "Quadrupla felina. Protege contra rinotraqueite, calicivirose, panleucopenia e clamidiose."},
+    {"especie": "gato", "grupo": "V4", "dose": 2, "idade_semanas": 12, "obrigatoria": True, "reforco_anual": True,
+     "nome": "V4 - 2a dose", "descricao": "Segunda dose da V4. Reforco 3-4 semanas apos a 1a dose."},
+    {"especie": "gato", "grupo": "V4", "dose": 3, "idade_semanas": 16, "obrigatoria": True, "reforco_anual": True,
+     "nome": "V4 - 3a dose", "descricao": "Terceira e ultima dose inicial da V4. Completa a imunizacao basica do filhote."},
+    {"especie": "gato", "grupo": "V4", "dose": 4, "idade_semanas": 68, "obrigatoria": True, "reforco_anual": True,
+     "nome": "V4 - Reforco Anual", "descricao": "Reforco anual da quadrupla felina. Manter por toda a vida do gato."},
+    # ── GATOS — Antirrabica ──
+    {"especie": "gato", "grupo": "Antirrabica", "dose": 1, "idade_semanas": 16, "obrigatoria": True, "reforco_anual": True,
+     "nome": "Antirrabica - 1a dose", "descricao": "Vacina antirrabica felina, obrigatoria por lei. Aplicada a partir de 4 meses."},
+    {"especie": "gato", "grupo": "Antirrabica", "dose": 2, "idade_semanas": 68, "obrigatoria": True, "reforco_anual": True,
+     "nome": "Antirrabica - Reforco Anual", "descricao": "Reforco anual obrigatorio da antirrabica felina."},
+    # ── GATOS — FeLV ──
+    {"especie": "gato", "grupo": "FeLV", "dose": 1, "idade_semanas": 9,  "obrigatoria": False, "reforco_anual": True,
+     "nome": "FeLV - 1a dose", "descricao": "Vacina contra Leucemia Viral Felina. Exige teste negativo de FeLV antes da aplicacao."},
+    {"especie": "gato", "grupo": "FeLV", "dose": 2, "idade_semanas": 13, "obrigatoria": False, "reforco_anual": True,
+     "nome": "FeLV - 2a dose", "descricao": "Segunda dose da FeLV. Aplicada 3-4 semanas apos a 1a dose."},
+    {"especie": "gato", "grupo": "FeLV", "dose": 3, "idade_semanas": 65, "obrigatoria": False, "reforco_anual": True,
+     "nome": "FeLV - Reforco Anual", "descricao": "Reforco anual da FeLV. Essencial para gatos com acesso ao exterior."},
+]
+
+
 def seed_db(db: Session) -> None:
     """Insere dados iniciais se o banco estiver vazio. Idempotente."""
     if db.query(Raca).count() > 0:
@@ -158,5 +210,8 @@ def seed_db(db: Session) -> None:
             continue
         for dados in cuidados_lista:
             db.add(Cuidado(raca_id=raca.id, **dados))
+
+    for dados in CALENDARIO_VACINAL:
+        db.add(VacinaRecomendada(**dados))
 
     db.commit()

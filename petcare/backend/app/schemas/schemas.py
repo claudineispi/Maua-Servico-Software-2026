@@ -152,6 +152,30 @@ class CuidadoResponse(CuidadoBase):
 
 
 # ──────────────────────────────────────────────
+# VACINA RECOMENDADA (cronograma)
+# ──────────────────────────────────────────────
+class VacinaRecomendadaResponse(BaseModel):
+    id: int
+    especie: EspecieEnum
+    nome: str
+    descricao: Optional[str] = None
+    grupo: str
+    dose: int
+    idade_semanas: int
+    obrigatoria: bool
+    reforco_anual: bool
+    class Config:
+        from_attributes = True
+
+
+class CronogramaItem(BaseModel):
+    vacina_recomendada: VacinaRecomendadaResponse
+    data_prevista: date
+    status: str  # "pendente", "aplicada", "atrasada"
+    vacina_aplicada_id: Optional[int] = None
+
+
+# ──────────────────────────────────────────────
 # DASHBOARD
 # ──────────────────────────────────────────────
 class DashboardPet(BaseModel):

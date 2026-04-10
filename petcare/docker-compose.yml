@@ -34,6 +34,7 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
+      - uploads:/app/uploads
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
       interval: 15s
@@ -58,3 +59,5 @@ services:
 volumes:
   pgdata:
     name: petcare_pgdata
+  uploads:
+    name: petcare_uploads

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Syringe, Dumbbell, MapPin, Heart, Plus, X, Lightbulb } from 'lucide-react'
-import { petsAPI, vacinasAPI, atividadesAPI, passeiosAPI, cuidadosAPI } from '../services/api'
+import { ArrowLeft, Syringe, Dumbbell, MapPin, Heart, Plus, X, Lightbulb, Pencil, Trash2 } from 'lucide-react'
+import { petsAPI, vacinasAPI, atividadesAPI, passeiosAPI, cuidadosAPI, API_URL } from '../services/api'
 import { format, differenceInYears, differenceInMonths, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -32,8 +32,10 @@ function getPetEmoji(especie, porte) {
 
 // ─── VACINAS TAB ───────────────────────────────────────────
 function VacinasTab({ petId }) {
+  const [cronograma, setCronograma] = useState([])
   const [vacinas, setVacinas] = useState([])
   const [loading, setLoading] = useState(true)
+  const [confirmando, setConfirmando] = useState(null)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -42,60 +44,152 @@ function VacinasTab({ petId }) {
     veterinario: '', clinica: '', lote: '', observacoes: '',
   })
 
-  const load = () =>
-    vacinasAPI.listByPet(petId).then(r => setVacinas(r.data)).finally(() => setLoading(false))
-
+  const load = () => {
+    Promise.all([vacinasAPI.cronograma(petId), vacinasAPI.listByPet(petId)])
+      .then(([c, v]) => { setCronograma(c.data); setVacinas(v.data) })
+      .finally(() => setLoading(false))
+  }
   useEffect(load, [petId])
 
-  const save = async () => {
-    if (!form.nome || !form.data_aplicacao) {
-      setError('Nome e data de aplicação são obrigatórios.')
-      return
-    }
-    setError('')
-    setSaving(true)
+  const confirmarDose = async (recId) => {
+    setConfirmando(recId)
     try {
-      await vacinasAPI.create({
-        ...form,
-        pet_id: parseInt(petId),
-        proxima_dose: form.proxima_dose || null,
-      })
+      await vacinasAPI.confirmar(petId, recId)
+      load()
+    } catch (e) {
+      alert(e.response?.data?.detail || 'Erro ao confirmar vacina.')
+    } finally {
+      setConfirmando(null)
+    }
+  }
+
+  const save = async () => {
+    if (!form.nome || !form.data_aplicacao) { setError('Nome e data sao obrigatorios.'); return }
+    setError(''); setSaving(true)
+    try {
+      await vacinasAPI.create({ ...form, pet_id: parseInt(petId), proxima_dose: form.proxima_dose || null })
       setShowForm(false)
       setForm({ nome: '', data_aplicacao: '', proxima_dose: '', veterinario: '', clinica: '', lote: '', observacoes: '' })
       load()
-    } catch (e) {
-      setError(e.response?.data?.detail || 'Erro ao salvar vacina.')
-    } finally {
-      setSaving(false)
-    }
+    } catch (e) { setError(e.response?.data?.detail || 'Erro ao salvar vacina.') }
+    finally { setSaving(false) }
   }
 
   const del = async (id) => {
     if (!confirm('Remover vacina?')) return
-    try {
-      await vacinasAPI.delete(id)
-      load()
-    } catch {
-      alert('Erro ao remover vacina.')
-    }
-  }
-
-  const getDotClass = (v) => {
-    if (!v.proxima_dose) return ''
-    const dias = differenceInDays(parseLocalDate(v.proxima_dose), new Date())
-    if (dias < 0) return 'overdue'
-    if (dias <= 30) return 'pending'
-    return ''
+    try { await vacinasAPI.delete(id); load() } catch { alert('Erro ao remover.') }
   }
 
   if (loading) return <div className="spinner" />
 
+  // Agrupa cronograma por grupo
+  const grupos = {}
+  cronograma.forEach(item => {
+    const g = item.vacina_recomendada.grupo
+    if (!grupos[g]) grupos[g] = []
+    grupos[g].push(item)
+  })
+
+  const statusColor = { aplicada: '#16a34a', atrasada: '#dc2626', pendente: '#9ca3af' }
+  const statusBg = { aplicada: '#f0fdf4', atrasada: '#fef2f2', pendente: '#f9fafb' }
+  const statusIcon = { aplicada: '✅', atrasada: '⚠️', pendente: '⏳' }
+
   return (
     <div>
+      {/* ═══════ CRONOGRAMA VACINAL ═══════ */}
+      <h4 style={{ fontFamily: 'var(--font-display)', color: 'var(--bark)', marginBottom: 16 }}>
+        📋 Cronograma Vacinal
+      </h4>
+
+      {Object.keys(grupos).length === 0 ? (
+        <div style={{ padding: 16, color: 'var(--text-soft)', textAlign: 'center' }}>
+          Nenhuma vacina recomendada encontrada para esta especie.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginBottom: 32 }}>
+          {Object.entries(grupos).map(([grupo, items]) => {
+            const aplicadas = items.filter(i => i.status === 'aplicada').length
+            const total = items.length
+            const progresso = Math.round((aplicadas / total) * 100)
+
+            return (
+              <div key={grupo} className="card" style={{ padding: '16px 20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div>
+                    <strong style={{ fontSize: '1rem', color: 'var(--bark)', fontFamily: 'var(--font-display)' }}>
+                      {grupo}
+                    </strong>
+                    <span style={{ marginLeft: 10, fontSize: '0.8rem', color: 'var(--text-soft)' }}>
+                      {aplicadas}/{total} doses
+                    </span>
+                    {items[0]?.vacina_recomendada.obrigatoria && (
+                      <span className="badge badge-orange" style={{ marginLeft: 8 }}>obrigatoria</span>
+                    )}
+                  </div>
+                  <div style={{
+                    width: 80, height: 8, background: '#e5e7eb', borderRadius: 4, overflow: 'hidden',
+                  }}>
+                    <div style={{
+                      width: `${progresso}%`, height: '100%',
+                      background: progresso === 100 ? '#16a34a' : '#f59e0b',
+                      borderRadius: 4, transition: 'width 0.3s',
+                    }} />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {items.map(item => {
+                    const rec = item.vacina_recomendada
+                    return (
+                      <div key={rec.id} style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '10px 14px', borderRadius: 8,
+                        background: statusBg[item.status],
+                        border: `1px solid ${statusColor[item.status]}22`,
+                      }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <span>{statusIcon[item.status]}</span>
+                            <strong style={{ fontSize: '0.9rem', color: 'var(--bark)' }}>{rec.nome}</strong>
+                          </div>
+                          <div style={{ fontSize: '0.78rem', color: 'var(--text-soft)', marginTop: 2, marginLeft: 28 }}>
+                            Prevista: {format(parseLocalDate(item.data_prevista), 'dd/MM/yyyy')}
+                            {rec.idade_semanas && ` (${rec.idade_semanas} semanas)`}
+                          </div>
+                          {rec.descricao && (
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-soft)', marginTop: 2, marginLeft: 28, lineHeight: 1.4 }}>
+                              {rec.descricao}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ flexShrink: 0, marginLeft: 12 }}>
+                          {item.status === 'aplicada' ? (
+                            <span className="badge badge-green">Aplicada</span>
+                          ) : (
+                            <button
+                              className="btn btn-primary btn-sm"
+                              disabled={confirmando === rec.id}
+                              onClick={() => confirmarDose(rec.id)}
+                            >
+                              {confirmando === rec.id ? '...' : '💉 Confirmar'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* ═══════ HISTORICO + REGISTRO MANUAL ═══════ */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h4 style={{ fontFamily: 'var(--font-display)', color: 'var(--bark)' }}>Histórico Vacinal</h4>
+        <h4 style={{ fontFamily: 'var(--font-display)', color: 'var(--bark)' }}>📝 Historico de Vacinas Aplicadas</h4>
         <button className="btn btn-primary btn-sm" onClick={() => { setShowForm(s => !s); setError('') }}>
-          {showForm ? <X size={14} /> : <Plus size={14} />} {showForm ? 'Cancelar' : 'Registrar Vacina'}
+          {showForm ? <X size={14} /> : <Plus size={14} />} {showForm ? 'Cancelar' : 'Registro Manual'}
         </button>
       </div>
 
@@ -105,26 +199,26 @@ function VacinasTab({ petId }) {
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">Vacina *</label>
-              <input className="form-input" value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} placeholder="Ex: V10, Antirrábica..." />
+              <input className="form-input" value={form.nome} onChange={e => setForm(f => ({ ...f, nome: e.target.value }))} placeholder="Ex: V10, Antirrabica..." />
             </div>
             <div className="form-group">
-              <label className="form-label">Data de Aplicação *</label>
+              <label className="form-label">Data de Aplicacao *</label>
               <input className="form-input" type="date" value={form.data_aplicacao} onChange={e => setForm(f => ({ ...f, data_aplicacao: e.target.value }))} />
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">Próxima Dose</label>
+              <label className="form-label">Proxima Dose</label>
               <input className="form-input" type="date" value={form.proxima_dose} onChange={e => setForm(f => ({ ...f, proxima_dose: e.target.value }))} />
             </div>
             <div className="form-group">
-              <label className="form-label">Veterinário</label>
+              <label className="form-label">Veterinario</label>
               <input className="form-input" value={form.veterinario} onChange={e => setForm(f => ({ ...f, veterinario: e.target.value }))} />
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label className="form-label">Clínica</label>
+              <label className="form-label">Clinica</label>
               <input className="form-input" value={form.clinica} onChange={e => setForm(f => ({ ...f, clinica: e.target.value }))} />
             </div>
             <div className="form-group">
@@ -139,17 +233,16 @@ function VacinasTab({ petId }) {
       )}
 
       {vacinas.length === 0 ? (
-        <div className="empty-state"><div className="emoji">💉</div><h3>Nenhuma vacina registrada</h3></div>
+        <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-soft)' }}>
+          Nenhuma vacina aplicada ainda. Use o cronograma acima ou registre manualmente.
+        </div>
       ) : (
         <div className="timeline">
           {vacinas.map(v => {
-            const dc = getDotClass(v)
-            const diasProxima = v.proxima_dose
-              ? differenceInDays(parseLocalDate(v.proxima_dose), new Date())
-              : null
+            const diasProxima = v.proxima_dose ? differenceInDays(parseLocalDate(v.proxima_dose), new Date()) : null
             return (
               <div key={v.id} className="timeline-item">
-                <div className={`timeline-dot ${dc}`} />
+                <div className={`timeline-dot ${!v.proxima_dose ? '' : diasProxima < 0 ? 'overdue' : diasProxima <= 30 ? 'pending' : ''}`} />
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
                     <div style={{ fontWeight: 600, color: 'var(--bark)' }}>{v.nome}</div>
@@ -163,8 +256,8 @@ function VacinasTab({ petId }) {
                         {diasProxima < 0
                           ? <span className="badge badge-red">⚠ Atrasada {Math.abs(diasProxima)} dias</span>
                           : diasProxima <= 30
-                          ? <span className="badge badge-orange">🔔 Reforço em {diasProxima} dias</span>
-                          : <span className="badge badge-green">✓ Próxima: {format(parseLocalDate(v.proxima_dose), 'dd/MM/yyyy')}</span>
+                          ? <span className="badge badge-orange">🔔 Reforco em {diasProxima} dias</span>
+                          : <span className="badge badge-green">✓ Proxima: {format(parseLocalDate(v.proxima_dose), 'dd/MM/yyyy')}</span>
                         }
                       </div>
                     )}
@@ -592,6 +685,111 @@ function CuidadosTab({ racaId }) {
   )
 }
 
+// ─── EDIT PET MODAL ───────────────────────────────────────
+function EditPetModal({ pet, onClose, onSave }) {
+  const [form, setForm] = useState({
+    nome: pet.nome || '',
+    peso_kg: pet.peso_kg ?? '',
+    cor: pet.cor || '',
+    microchip: pet.microchip || '',
+    observacoes: pet.observacoes || '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [photoFile, setPhotoFile] = useState(null)
+  const [photoPreview, setPhotoPreview] = useState(
+    pet.foto_url ? `${API_URL}${pet.foto_url}` : null
+  )
+
+  const handle = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
+
+  const handlePhoto = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) { setError('A foto deve ter no maximo 5 MB.'); return }
+    setPhotoFile(file)
+    setPhotoPreview(URL.createObjectURL(file))
+  }
+
+  const submit = async () => {
+    if (!form.nome) { setError('Nome e obrigatorio.'); return }
+    setError('')
+    setSaving(true)
+    try {
+      await petsAPI.update(pet.id, {
+        ...form,
+        peso_kg: form.peso_kg ? parseFloat(form.peso_kg) : null,
+        microchip: form.microchip || null,
+      })
+      if (photoFile) {
+        await petsAPI.uploadPhoto(pet.id, photoFile)
+      }
+      onSave()
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Erro ao atualizar pet.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <h3>✏️ Editar {pet.nome}</h3>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}><X size={18} /></button>
+        </div>
+        {error && <div className="alert alert-warning" style={{ marginBottom: 12 }}>{error}</div>}
+
+        <div className="form-group">
+          <label className="form-label">Nome *</label>
+          <input className="form-input" name="nome" value={form.nome} onChange={handle} />
+        </div>
+
+        <div className="form-row">
+          <div className="form-group">
+            <label className="form-label">Peso (kg)</label>
+            <input className="form-input" type="number" step="0.1" name="peso_kg" value={form.peso_kg} onChange={handle} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Cor / Pelagem</label>
+            <input className="form-input" name="cor" value={form.cor} onChange={handle} />
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Microchip</label>
+          <input className="form-input" name="microchip" value={form.microchip} onChange={handle} />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Foto do Pet</label>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handlePhoto}
+              style={{ fontSize: '0.85rem' }} />
+            {photoPreview && (
+              <img src={photoPreview} alt="Preview"
+                style={{ width: 64, height: 64, borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--moss-pale)' }} />
+            )}
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Observacoes</label>
+          <textarea className="form-textarea" name="observacoes" value={form.observacoes} onChange={handle} />
+        </div>
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+          <button className="btn btn-outline" onClick={onClose}>Cancelar</button>
+          <button className="btn btn-primary" onClick={submit} disabled={saving}>
+            {saving ? 'Salvando...' : '✓ Salvar Alteracoes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── MAIN PAGE ─────────────────────────────────────────────
 export default function PetDetail() {
   const { id } = useParams()
@@ -600,19 +798,31 @@ export default function PetDetail() {
   const [pet, setPet] = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState(searchParams.get('tab') || 'vacinas')
+  const [showEdit, setShowEdit] = useState(false)
 
-  // Sincroniza a aba com a URL quando o query param muda
   useEffect(() => {
     const tabParam = searchParams.get('tab')
     if (tabParam) setTab(tabParam)
   }, [searchParams])
 
-  useEffect(() => {
+  const loadPet = () => {
     petsAPI.get(id).then(r => setPet(r.data)).finally(() => setLoading(false))
-  }, [id])
+  }
+
+  useEffect(loadPet, [id])
+
+  const handleDelete = async () => {
+    if (!confirm(`Tem certeza que deseja excluir ${pet.nome}? Esta acao nao pode ser desfeita.`)) return
+    try {
+      await petsAPI.delete(pet.id)
+      navigate('/pets')
+    } catch {
+      alert('Erro ao excluir pet.')
+    }
+  }
 
   if (loading) return <div className="spinner" />
-  if (!pet) return <div className="empty-state"><h3>Pet não encontrado</h3></div>
+  if (!pet) return <div className="empty-state"><h3>Pet nao encontrado</h3></div>
 
   const tabs = [
     { id: 'vacinas', label: '💉 Vacinas' },
@@ -632,11 +842,27 @@ export default function PetDetail() {
           width: 80, height: 80, borderRadius: '50%',
           background: 'var(--moss-pale)',
           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.5rem', flexShrink: 0,
+          overflow: 'hidden',
         }}>
-          {getPetEmoji(pet.raca?.especie, pet.raca?.porte)}
+          {pet.foto_url ? (
+            <img src={`${API_URL}${pet.foto_url}`} alt={pet.nome}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            getPetEmoji(pet.raca?.especie, pet.raca?.porte)
+          )}
         </div>
         <div style={{ flex: 1 }}>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', color: 'var(--bark)' }}>{pet.nome}</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', color: 'var(--bark)' }}>{pet.nome}</h2>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-outline btn-sm" onClick={() => setShowEdit(true)}>
+                <Pencil size={14} /> Editar
+              </button>
+              <button className="btn btn-danger btn-sm" onClick={handleDelete}>
+                <Trash2 size={14} /> Excluir
+              </button>
+            </div>
+          </div>
           <div style={{ color: 'var(--text-soft)', fontSize: '0.9rem', marginTop: 2 }}>
             {pet.raca?.nome} • {petAge(pet.data_nascimento)} • {pet.sexo}
             {pet.peso_kg && ` • ${pet.peso_kg} kg`}
@@ -671,6 +897,11 @@ export default function PetDetail() {
           {tab === 'cuidados' && <CuidadosTab racaId={pet.raca?.id} />}
         </div>
       </div>
+
+      {showEdit && (
+        <EditPetModal pet={pet} onClose={() => setShowEdit(false)}
+          onSave={() => { setShowEdit(false); loadPet() }} />
+      )}
     </div>
   )
 }

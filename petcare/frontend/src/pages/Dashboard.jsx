@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { PawPrint, Syringe, Dumbbell, MapPin, AlertTriangle, ChevronRight, TrendingUp } from 'lucide-react'
-import { petsAPI, vacinasAPI } from '../services/api'
+import { petsAPI, vacinasAPI, API_URL } from '../services/api'
 import { format, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -120,8 +120,13 @@ export default function Dashboard() {
         <div className="card-grid">
           {pets.slice(0, 6).map(pet => (
             <div key={pet.id} className="pet-card" onClick={() => navigate(`/pets/${pet.id}`)}>
-              <div className="pet-card-avatar" style={{ background: getAvatarBg(pet.id) }}>
-                <span>{getPetEmoji(pet.raca?.especie, pet.raca?.porte)}</span>
+              <div className="pet-card-avatar" style={{ background: getAvatarBg(pet.id), overflow: 'hidden' }}>
+                {pet.foto_url ? (
+                  <img src={`${API_URL}${pet.foto_url}`} alt={pet.nome}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <span>{getPetEmoji(pet.raca?.especie, pet.raca?.porte)}</span>
+                )}
               </div>
               <div className="pet-card-body">
                 <div className="pet-card-name">{pet.nome}</div>

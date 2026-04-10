@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import os
+import uuid
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import date, timedelta
@@ -8,6 +10,10 @@ from app.models.models import Pet, Vacina, Atividade, Passeio, StatusVacinaEnum
 from app.schemas.schemas import PetCreate, PetUpdate, PetResponse, DashboardPet
 
 router = APIRouter()
+
+UPLOAD_DIR = "/app/uploads/pets"
+ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
+MAX_SIZE = 5 * 1024 * 1024  # 5 MB
 
 
 @router.get("/", response_model=List[PetResponse])
@@ -51,6 +57,52 @@ def deletar_pet(pet_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Pet não encontrado")
     pet.ativo = False  # soft delete
     db.commit()
+
+
+@router.post("/{pet_id}/photo", response_model=PetResponse)
+def upload_foto(pet_id: int, file: UploadFile = File(...), db: Session = Depends(get_db)):
+    pet = db.query(Pet).filter(Pet.id == pet_id).first()
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet não encontrado")
+
+    if file.content_type not in ALLOWED_TYPES:
+        raise HTTPException(status_code=400, detail="Formato não suportado. Use JPG, PNG ou WebP.")
+
+    content = file.file.read()
+    if len(content) > MAX_SIZE:
+        raise HTTPException(status_code=400, detail="A foto deve ter no máximo 5 MB.")
+
+    ext = file.content_type.split("/")[-1].replace("jpeg", "jpg")
+    filename = f"{pet_id}_{uuid.uuid4().hex[:8]}.{ext}"
+
+    # Remove foto anterior se existir
+    if pet.foto_url:
+        old_path = os.path.join(UPLOAD_DIR, os.path.basename(pet.foto_url))
+        if os.path.exists(old_path):
+            os.remove(old_path)
+
+    filepath = os.path.join(UPLOAD_DIR, filename)
+    with open(filepath, "wb") as f:
+        f.write(content)
+
+    pet.foto_url = f"/uploads/pets/{filename}"
+    db.commit()
+    db.refresh(pet)
+    return pet
+
+
+@router.delete("/{pet_id}/photo", status_code=status.HTTP_204_NO_CONTENT)
+def deletar_foto(pet_id: int, db: Session = Depends(get_db)):
+    pet = db.query(Pet).filter(Pet.id == pet_id).first()
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet não encontrado")
+
+    if pet.foto_url:
+        old_path = os.path.join(UPLOAD_DIR, os.path.basename(pet.foto_url))
+        if os.path.exists(old_path):
+            os.remove(old_path)
+        pet.foto_url = None
+        db.commit()
 
 
 @router.get("/{pet_id}/dashboard", response_model=DashboardPet)
