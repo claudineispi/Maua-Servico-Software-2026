@@ -2,14 +2,21 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from app.database import engine, Base
+from app.database import engine, Base, SessionLocal
 from app.routers import pets, racas, vacinas, atividades, passeios, cuidados
+from app.seed import seed_db
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Cria todas as tabelas ao iniciar
+    # 1. Cria tabelas (idempotente — não recria se já existem)
     Base.metadata.create_all(bind=engine)
+    # 2. Popula dados iniciais (idempotente — só insere se banco estiver vazio)
+    db = SessionLocal()
+    try:
+        seed_db(db)
+    finally:
+        db.close()
     yield
 
 
