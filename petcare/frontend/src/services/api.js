@@ -52,6 +52,7 @@ export const cuidadosAPI = {
   listByRaca: (racaId, categoria) =>
     api.get(`/api/v1/cuidados/raca/${racaId}`, { params: categoria ? { categoria } : {} }),
   create: (data) => api.post('/api/v1/cuidados/', data),
+  delete: (id) => api.delete(`/api/v1/cuidados/${id}`),
 }
 
 export default api

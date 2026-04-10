@@ -1,7 +1,17 @@
 {
   "permissions": {
     "allow": [
-      "Bash(docker compose:*)"
+      "Bash(docker compose:*)",
+      "WebSearch",
+      "Bash(curl -s http://localhost:8000/api/v1/racas/)",
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(f'Racas: {len\\(data\\)}'\\)\")",
+      "Bash(curl -s http://localhost:8000/api/v1/cuidados/raca/1)",
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(f'Cuidados Golden: {len\\(data\\)}'\\); [print\\(f'  [{c[\\\\\"categoria\\\\\"]}] {c[\\\\\"titulo\\\\\"]}'\\) for c in data]\")",
+      "Bash(curl -s http://localhost:8000/api/v1/cuidados/raca/10)",
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(f'Cuidados Persa: {len\\(data\\)}'\\); [print\\(f'  [{c[\\\\\"categoria\\\\\"]}] {c[\\\\\"titulo\\\\\"]}'\\) for c in data]\")",
+      "Bash(curl -s http://localhost:8000/api/v1/racas/__TRACKED_VAR__)",
+      "Bash(pip --version)",
+      "Bash(python gerar_documentacao.py)"
     ]
   }
 }

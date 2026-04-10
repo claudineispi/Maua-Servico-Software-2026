@@ -1,11 +1,11 @@
-import { BrowserRouter, Routes, Route, NavLink, useNavigate } from 'react-router-dom'
-import { Home, PawPrint, Syringe, Dumbbell, MapPin, Heart, ChevronRight } from 'lucide-react'
+import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
+import { Home, PawPrint, Syringe, Dumbbell, Heart } from 'lucide-react'
 import Dashboard from './pages/Dashboard'
 import Pets from './pages/Pets'
 import PetDetail from './pages/PetDetail'
 import Vacinas from './pages/Vacinas'
 import Atividades from './pages/Atividades'
-import Passeios from './pages/Passeios'
+import Cuidados from './pages/Cuidados'
 
 function Sidebar() {
   const navItems = [
@@ -13,7 +13,7 @@ function Sidebar() {
     { to: '/pets', icon: <PawPrint size={17} />, label: 'Meus Pets' },
     { to: '/vacinas', icon: <Syringe size={17} />, label: 'Vacinas' },
     { to: '/atividades', icon: <Dumbbell size={17} />, label: 'Atividades' },
-    { to: '/passeios', icon: <MapPin size={17} />, label: 'Passeios' },
+    { to: '/cuidados', icon: <Heart size={17} />, label: 'Cuidados' },
   ]
 
   return (
@@ -60,7 +60,7 @@ export default function App() {
             <Route path="/pets/:id" element={<PetDetail />} />
             <Route path="/vacinas" element={<Vacinas />} />
             <Route path="/atividades" element={<Atividades />} />
-            <Route path="/passeios" element={<Passeios />} />
+            <Route path="/cuidados" element={<Cuidados />} />
           </Routes>
         </main>
       </div>

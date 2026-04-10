@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { petsAPI, atividadesAPI } from '../services/api'
-import { Dumbbell, TrendingUp } from 'lucide-react'
+import { petsAPI } from '../services/api'
+import { Dumbbell, MapPin, TrendingUp } from 'lucide-react'
 
 export default function Atividades() {
   const [pets, setPets] = useState([])
@@ -17,15 +17,15 @@ export default function Atividades() {
   return (
     <div>
       <div className="page-header">
-        <h2>Atividades Físicas</h2>
-        <p>Acompanhe a saúde e o condicionamento dos seus pets</p>
+        <h2>Atividades & Passeios</h2>
+        <p>Registre exercicios e passeios dos seus pets com sugestoes personalizadas</p>
       </div>
 
       {pets.length === 0 ? (
         <div className="empty-state">
           <div className="emoji">🏃</div>
           <h3>Nenhum pet cadastrado</h3>
-          <p>Cadastre um pet para começar a registrar atividades.</p>
+          <p>Cadastre um pet para comecar a registrar atividades e passeios.</p>
           <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => navigate('/pets')}>
             Ir para Pets
           </button>
@@ -34,7 +34,7 @@ export default function Atividades() {
         <>
           <div className="alert alert-success" style={{ marginBottom: 24 }}>
             <TrendingUp size={16} />
-            <span>Selecione um pet abaixo para ver e registrar suas atividades com sugestões personalizadas por raça.</span>
+            <span>Selecione um pet para ver e registrar atividades fisicas e passeios com sugestoes por raca e porte.</span>
           </div>
           <div className="card-grid">
             {pets.map(pet => (
@@ -47,16 +47,19 @@ export default function Atividades() {
                   <div>
                     <div style={{ fontWeight: 700, color: 'var(--bark)', fontFamily: 'var(--font-display)' }}>{pet.nome}</div>
                     <div style={{ fontSize: '0.82rem', color: 'var(--text-soft)' }}>{pet.raca?.nome || '—'}</div>
-                    {pet.raca?.nivel_atividade && (
-                      <span className={`badge ${pet.raca.nivel_atividade === 'alto' ? 'badge-orange' : pet.raca.nivel_atividade === 'medio' ? 'badge-blue' : 'badge-gray'}`} style={{ marginTop: 6 }}>
-                        nível {pet.raca.nivel_atividade}
-                      </span>
-                    )}
+                    <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+                      {pet.raca?.nivel_atividade && (
+                        <span className={`badge ${pet.raca.nivel_atividade === 'alto' ? 'badge-orange' : pet.raca.nivel_atividade === 'medio' ? 'badge-blue' : 'badge-gray'}`}>
+                          nivel {pet.raca.nivel_atividade}
+                        </span>
+                      )}
+                      {pet.raca?.porte && <span className="badge badge-green">{pet.raca.porte}</span>}
+                    </div>
                   </div>
                 </div>
-                <div style={{ marginTop: 14 }}>
-                  <button className="btn btn-primary btn-sm" onClick={e => { e.stopPropagation(); navigate(`/pets/${pet.id}`) }}>
-                    <Dumbbell size={13} /> Ver Atividades
+                <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                  <button className="btn btn-primary btn-sm" onClick={e => { e.stopPropagation(); navigate(`/pets/${pet.id}?tab=atividades`) }}>
+                    <Dumbbell size={13} /> Atividades
                   </button>
                 </div>
               </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, Syringe, Dumbbell, MapPin, Heart, Plus, X, Lightbulb } from 'lucide-react'
 import { petsAPI, vacinasAPI, atividadesAPI, passeiosAPI, cuidadosAPI } from '../services/api'
 import { format, differenceInYears, differenceInMonths, differenceInDays } from 'date-fns'
@@ -180,65 +180,94 @@ function VacinasTab({ petId }) {
   )
 }
 
-// ─── ATIVIDADES TAB ────────────────────────────────────────
+// ─── ATIVIDADES & PASSEIOS TAB (unificada) ────────────────
 function AtividadesTab({ petId }) {
   const [atividades, setAtividades] = useState([])
-  const [sugestoes, setSugestoes] = useState(null)
+  const [passeios, setPasseios] = useState([])
+  const [sugestoesAtiv, setSugestoesAtiv] = useState(null)
+  const [sugestoesPas, setSugestoesPas] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  const [form, setForm] = useState({
-    tipo: '', data: '', duracao_minutos: '', distancia_km: '', intensidade: 'moderada', observacoes: '',
+
+  // Atividade form
+  const [showFormAtiv, setShowFormAtiv] = useState(false)
+  const [savingAtiv, setSavingAtiv] = useState(false)
+  const [errorAtiv, setErrorAtiv] = useState('')
+  const [formAtiv, setFormAtiv] = useState({
+    tipo: '', data: '', duracao_minutos: '', distancia_km: '', intensidade: 'moderada',
+  })
+
+  // Passeio form
+  const [showFormPas, setShowFormPas] = useState(false)
+  const [savingPas, setSavingPas] = useState(false)
+  const [errorPas, setErrorPas] = useState('')
+  const [formPas, setFormPas] = useState({
+    local: '', data: '', duracao_minutos: '', avaliacao: 5, observacoes: '',
   })
 
   const load = () => {
-    Promise.all([atividadesAPI.listByPet(petId), atividadesAPI.sugestoes(petId)])
-      .then(([a, s]) => { setAtividades(a.data); setSugestoes(s.data) })
+    Promise.all([
+      atividadesAPI.listByPet(petId),
+      atividadesAPI.sugestoes(petId),
+      passeiosAPI.listByPet(petId),
+      passeiosAPI.sugestoes(petId),
+    ])
+      .then(([a, sa, p, sp]) => {
+        setAtividades(a.data); setSugestoesAtiv(sa.data)
+        setPasseios(p.data); setSugestoesPas(sp.data)
+      })
       .finally(() => setLoading(false))
   }
   useEffect(load, [petId])
 
-  const save = async () => {
-    if (!form.tipo || !form.data) {
-      setError('Tipo e data são obrigatórios.')
-      return
-    }
-    setError('')
-    setSaving(true)
+  const saveAtiv = async () => {
+    if (!formAtiv.tipo || !formAtiv.data) { setErrorAtiv('Tipo e data são obrigatórios.'); return }
+    setErrorAtiv(''); setSavingAtiv(true)
     try {
       await atividadesAPI.create({
-        ...form,
-        pet_id: parseInt(petId),
-        duracao_minutos: form.duracao_minutos ? parseInt(form.duracao_minutos) : null,
-        distancia_km: form.distancia_km ? parseFloat(form.distancia_km) : null,
+        ...formAtiv, pet_id: parseInt(petId),
+        duracao_minutos: formAtiv.duracao_minutos ? parseInt(formAtiv.duracao_minutos) : null,
+        distancia_km: formAtiv.distancia_km ? parseFloat(formAtiv.distancia_km) : null,
       })
-      setShowForm(false)
-      setForm({ tipo: '', data: '', duracao_minutos: '', distancia_km: '', intensidade: 'moderada', observacoes: '' })
+      setShowFormAtiv(false)
+      setFormAtiv({ tipo: '', data: '', duracao_minutos: '', distancia_km: '', intensidade: 'moderada' })
       load()
-    } catch (e) {
-      setError(e.response?.data?.detail || 'Erro ao salvar atividade.')
-    } finally {
-      setSaving(false)
-    }
+    } catch (e) { setErrorAtiv(e.response?.data?.detail || 'Erro ao salvar atividade.') }
+    finally { setSavingAtiv(false) }
+  }
+
+  const savePas = async () => {
+    if (!formPas.local || !formPas.data) { setErrorPas('Local e data são obrigatórios.'); return }
+    setErrorPas(''); setSavingPas(true)
+    try {
+      await passeiosAPI.create({
+        ...formPas, pet_id: parseInt(petId),
+        duracao_minutos: formPas.duracao_minutos ? parseInt(formPas.duracao_minutos) : null,
+        avaliacao: parseInt(formPas.avaliacao),
+      })
+      setShowFormPas(false)
+      setFormPas({ local: '', data: '', duracao_minutos: '', avaliacao: 5, observacoes: '' })
+      load()
+    } catch (e) { setErrorPas(e.response?.data?.detail || 'Erro ao salvar passeio.') }
+    finally { setSavingPas(false) }
   }
 
   if (loading) return <div className="spinner" />
 
   return (
     <div>
-      {sugestoes && (
+      {/* ── Sugestões de atividades ── */}
+      {sugestoesAtiv && (
         <div className="card" style={{ background: 'var(--moss-pale)', border: 'none', marginBottom: 20 }}>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
             <Lightbulb size={18} style={{ color: 'var(--moss)' }} />
             <strong style={{ color: 'var(--moss)', fontFamily: 'var(--font-display)' }}>
-              Sugestões para {sugestoes.pet} — nível {sugestoes.nivel_atividade}
+              Sugestões de atividade — nível {sugestoesAtiv.nivel_atividade}
             </strong>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {sugestoes.sugestoes.map((s, i) => (
+            {sugestoesAtiv.sugestoes.map((s, i) => (
               <span key={i} className="badge badge-green" style={{ cursor: 'pointer' }}
-                onClick={() => setForm(f => ({ ...f, tipo: s }))}>
+                onClick={() => { setFormAtiv(f => ({ ...f, tipo: s })); setShowFormAtiv(true) }}>
                 {s}
               </span>
             ))}
@@ -246,54 +275,78 @@ function AtividadesTab({ petId }) {
         </div>
       )}
 
+      {/* ── Sugestões de passeios ── */}
+      {sugestoesPas && (
+        <div className="card" style={{ background: 'var(--sky-pale)', border: 'none', marginBottom: 20 }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
+            <MapPin size={18} style={{ color: 'var(--sky)' }} />
+            <strong style={{ color: 'var(--sky)', fontFamily: 'var(--font-display)' }}>
+              Passeios recomendados — porte {sugestoesPas.porte}
+            </strong>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {sugestoesPas.sugestoes.map((s, i) => (
+              <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--sky)', cursor: 'pointer' }}
+                  onClick={() => { setFormPas(f => ({ ...f, local: s.local })); setShowFormPas(true) }}>
+                  📍 {s.local}
+                </span>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>— {s.descricao}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════ ATIVIDADES ═══════════════ */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h4 style={{ fontFamily: 'var(--font-display)', color: 'var(--bark)' }}>Atividades Registradas</h4>
-        <button className="btn btn-primary btn-sm" onClick={() => { setShowForm(s => !s); setError('') }}>
-          {showForm ? <X size={14} /> : <Plus size={14} />} {showForm ? 'Cancelar' : 'Registrar Atividade'}
+        <h4 style={{ fontFamily: 'var(--font-display)', color: 'var(--bark)' }}>🏃 Atividades</h4>
+        <button className="btn btn-primary btn-sm" onClick={() => { setShowFormAtiv(s => !s); setErrorAtiv('') }}>
+          {showFormAtiv ? <X size={14} /> : <Plus size={14} />} {showFormAtiv ? 'Cancelar' : 'Nova Atividade'}
         </button>
       </div>
 
-      {showForm && (
+      {showFormAtiv && (
         <div className="card" style={{ marginBottom: 20 }}>
-          {error && <div className="alert alert-warning" style={{ marginBottom: 12 }}>{error}</div>}
+          {errorAtiv && <div className="alert alert-warning" style={{ marginBottom: 12 }}>{errorAtiv}</div>}
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">Atividade *</label>
-              <input className="form-input" value={form.tipo} onChange={e => setForm(f => ({ ...f, tipo: e.target.value }))} placeholder="Ex: Caminhada, Natação..." />
+              <input className="form-input" value={formAtiv.tipo} onChange={e => setFormAtiv(f => ({ ...f, tipo: e.target.value }))} placeholder="Ex: Caminhada, Natação..." />
             </div>
             <div className="form-group">
               <label className="form-label">Data *</label>
-              <input className="form-input" type="date" value={form.data} onChange={e => setForm(f => ({ ...f, data: e.target.value }))} />
+              <input className="form-input" type="date" value={formAtiv.data} onChange={e => setFormAtiv(f => ({ ...f, data: e.target.value }))} />
             </div>
           </div>
           <div className="form-row-3">
             <div className="form-group">
               <label className="form-label">Duração (min)</label>
-              <input className="form-input" type="number" min="1" value={form.duracao_minutos} onChange={e => setForm(f => ({ ...f, duracao_minutos: e.target.value }))} />
+              <input className="form-input" type="number" min="1" value={formAtiv.duracao_minutos} onChange={e => setFormAtiv(f => ({ ...f, duracao_minutos: e.target.value }))} />
             </div>
             <div className="form-group">
               <label className="form-label">Distância (km)</label>
-              <input className="form-input" type="number" step="0.1" min="0" value={form.distancia_km} onChange={e => setForm(f => ({ ...f, distancia_km: e.target.value }))} />
+              <input className="form-input" type="number" step="0.1" min="0" value={formAtiv.distancia_km} onChange={e => setFormAtiv(f => ({ ...f, distancia_km: e.target.value }))} />
             </div>
             <div className="form-group">
               <label className="form-label">Intensidade</label>
-              <select className="form-select" value={form.intensidade} onChange={e => setForm(f => ({ ...f, intensidade: e.target.value }))}>
+              <select className="form-select" value={formAtiv.intensidade} onChange={e => setFormAtiv(f => ({ ...f, intensidade: e.target.value }))}>
                 <option value="leve">Leve</option>
                 <option value="moderada">Moderada</option>
                 <option value="intensa">Intensa</option>
               </select>
             </div>
           </div>
-          <button className="btn btn-primary" onClick={save} disabled={saving}>
-            {saving ? 'Salvando...' : '🏃 Salvar Atividade'}
+          <button className="btn btn-primary" onClick={saveAtiv} disabled={savingAtiv}>
+            {savingAtiv ? 'Salvando...' : '🏃 Salvar Atividade'}
           </button>
         </div>
       )}
 
       {atividades.length === 0 ? (
-        <div className="empty-state"><div className="emoji">🏃</div><h3>Nenhuma atividade registrada</h3></div>
+        <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-soft)', fontSize: '0.9rem' }}>Nenhuma atividade registrada.</div>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap" style={{ marginBottom: 32 }}>
           <table>
             <thead>
               <tr><th>Atividade</th><th>Data</th><th>Duração</th><th>Distância</th><th>Intensidade</th><th></th></tr>
@@ -322,121 +375,50 @@ function AtividadesTab({ petId }) {
           </table>
         </div>
       )}
-    </div>
-  )
-}
 
-// ─── PASSEIOS TAB ──────────────────────────────────────────
-function PasseiosTab({ petId }) {
-  const [passeios, setPasseios] = useState([])
-  const [sugestoes, setSugestoes] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  const [form, setForm] = useState({
-    local: '', data: '', duracao_minutos: '', avaliacao: 5, observacoes: '',
-  })
-
-  const load = () => {
-    Promise.all([passeiosAPI.listByPet(petId), passeiosAPI.sugestoes(petId)])
-      .then(([p, s]) => { setPasseios(p.data); setSugestoes(s.data) })
-      .finally(() => setLoading(false))
-  }
-  useEffect(load, [petId])
-
-  const save = async () => {
-    if (!form.local || !form.data) {
-      setError('Local e data são obrigatórios.')
-      return
-    }
-    setError('')
-    setSaving(true)
-    try {
-      await passeiosAPI.create({
-        ...form,
-        pet_id: parseInt(petId),
-        duracao_minutos: form.duracao_minutos ? parseInt(form.duracao_minutos) : null,
-        avaliacao: parseInt(form.avaliacao),
-      })
-      setShowForm(false)
-      setForm({ local: '', data: '', duracao_minutos: '', avaliacao: 5, observacoes: '' })
-      load()
-    } catch (e) {
-      setError(e.response?.data?.detail || 'Erro ao salvar passeio.')
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  if (loading) return <div className="spinner" />
-
-  return (
-    <div>
-      {sugestoes && (
-        <div className="card" style={{ background: 'var(--sky-pale)', border: 'none', marginBottom: 20 }}>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 10 }}>
-            <MapPin size={18} style={{ color: 'var(--sky)' }} />
-            <strong style={{ color: 'var(--sky)', fontFamily: 'var(--font-display)' }}>
-              Passeios recomendados — porte {sugestoes.porte}
-            </strong>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {sugestoes.sugestoes.map((s, i) => (
-              <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--sky)', cursor: 'pointer' }}
-                  onClick={() => setForm(f => ({ ...f, local: s.local }))}>
-                  📍 {s.local}
-                </span>
-                <span style={{ fontSize: '0.8rem', color: 'var(--text-soft)' }}>— {s.descricao}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
+      {/* ═══════════════ PASSEIOS ═══════════════ */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <h4 style={{ fontFamily: 'var(--font-display)', color: 'var(--bark)' }}>Passeios Realizados</h4>
-        <button className="btn btn-primary btn-sm" onClick={() => { setShowForm(s => !s); setError('') }}>
-          {showForm ? <X size={14} /> : <Plus size={14} />} {showForm ? 'Cancelar' : 'Registrar Passeio'}
+        <h4 style={{ fontFamily: 'var(--font-display)', color: 'var(--bark)' }}>🗺️ Passeios</h4>
+        <button className="btn btn-primary btn-sm" onClick={() => { setShowFormPas(s => !s); setErrorPas('') }}>
+          {showFormPas ? <X size={14} /> : <Plus size={14} />} {showFormPas ? 'Cancelar' : 'Novo Passeio'}
         </button>
       </div>
 
-      {showForm && (
+      {showFormPas && (
         <div className="card" style={{ marginBottom: 20 }}>
-          {error && <div className="alert alert-warning" style={{ marginBottom: 12 }}>{error}</div>}
+          {errorPas && <div className="alert alert-warning" style={{ marginBottom: 12 }}>{errorPas}</div>}
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">Local *</label>
-              <input className="form-input" value={form.local} onChange={e => setForm(f => ({ ...f, local: e.target.value }))} placeholder="Ex: Parque Ibirapuera" />
+              <input className="form-input" value={formPas.local} onChange={e => setFormPas(f => ({ ...f, local: e.target.value }))} placeholder="Ex: Parque Ibirapuera" />
             </div>
             <div className="form-group">
               <label className="form-label">Data *</label>
-              <input className="form-input" type="date" value={form.data} onChange={e => setForm(f => ({ ...f, data: e.target.value }))} />
+              <input className="form-input" type="date" value={formPas.data} onChange={e => setFormPas(f => ({ ...f, data: e.target.value }))} />
             </div>
           </div>
           <div className="form-row">
             <div className="form-group">
               <label className="form-label">Duração (min)</label>
-              <input className="form-input" type="number" min="1" value={form.duracao_minutos} onChange={e => setForm(f => ({ ...f, duracao_minutos: e.target.value }))} />
+              <input className="form-input" type="number" min="1" value={formPas.duracao_minutos} onChange={e => setFormPas(f => ({ ...f, duracao_minutos: e.target.value }))} />
             </div>
             <div className="form-group">
               <label className="form-label">Avaliação (1-5 ⭐)</label>
-              <input className="form-input" type="number" min={1} max={5} value={form.avaliacao} onChange={e => setForm(f => ({ ...f, avaliacao: e.target.value }))} />
+              <input className="form-input" type="number" min={1} max={5} value={formPas.avaliacao} onChange={e => setFormPas(f => ({ ...f, avaliacao: e.target.value }))} />
             </div>
           </div>
           <div className="form-group">
             <label className="form-label">Observações</label>
-            <textarea className="form-textarea" value={form.observacoes} onChange={e => setForm(f => ({ ...f, observacoes: e.target.value }))} />
+            <textarea className="form-textarea" value={formPas.observacoes} onChange={e => setFormPas(f => ({ ...f, observacoes: e.target.value }))} />
           </div>
-          <button className="btn btn-primary" onClick={save} disabled={saving}>
-            {saving ? 'Salvando...' : '🗺️ Salvar Passeio'}
+          <button className="btn btn-primary" onClick={savePas} disabled={savingPas}>
+            {savingPas ? 'Salvando...' : '🗺️ Salvar Passeio'}
           </button>
         </div>
       )}
 
       {passeios.length === 0 ? (
-        <div className="empty-state"><div className="emoji">🗺️</div><h3>Nenhum passeio registrado</h3></div>
+        <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--text-soft)', fontSize: '0.9rem' }}>Nenhum passeio registrado.</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {passeios.map(p => (
@@ -477,33 +459,111 @@ function CuidadosTab({ racaId }) {
   const [cuidados, setCuidados] = useState([])
   const [loading, setLoading] = useState(true)
   const [categoria, setCategoria] = useState('')
-
-  useEffect(() => {
-    if (!racaId) return setLoading(false)
-    cuidadosAPI.listByRaca(racaId, categoria || undefined)
-      .then(r => setCuidados(r.data))
-      .finally(() => setLoading(false))
-  }, [racaId, categoria])
-
-  if (!racaId) return <div className="empty-state"><div className="emoji">🩺</div><h3>Raça não cadastrada</h3></div>
-  if (loading) return <div className="spinner" />
+  const [showForm, setShowForm] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [form, setForm] = useState({
+    categoria: 'alimentacao', titulo: '', descricao: '', frequencia: '', prioridade: 'media',
+  })
 
   const categorias = ['', 'alimentacao', 'higiene', 'saude', 'comportamento', 'exercicio']
   const prioColor = { alta: 'badge-orange', media: 'badge-blue', baixa: 'badge-gray' }
 
+  const load = () => {
+    if (!racaId) return setLoading(false)
+    cuidadosAPI.listByRaca(racaId, categoria || undefined)
+      .then(r => setCuidados(r.data))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(load, [racaId, categoria])
+
+  const save = async () => {
+    if (!form.titulo || !form.descricao) {
+      setError('Titulo e descricao sao obrigatorios.')
+      return
+    }
+    setError('')
+    setSaving(true)
+    try {
+      await cuidadosAPI.create({
+        ...form,
+        raca_id: racaId,
+        frequencia: form.frequencia || null,
+      })
+      setShowForm(false)
+      setForm({ categoria: 'alimentacao', titulo: '', descricao: '', frequencia: '', prioridade: 'media' })
+      load()
+    } catch (e) {
+      setError(e.response?.data?.detail || 'Erro ao salvar cuidado.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const del = async (id) => {
+    if (!confirm('Remover este cuidado?')) return
+    try { await cuidadosAPI.delete(id); load() } catch { alert('Erro ao remover.') }
+  }
+
+  if (!racaId) return <div className="empty-state"><div className="emoji">🩺</div><h3>Raca nao cadastrada</h3></div>
+  if (loading) return <div className="spinner" />
+
   return (
     <div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
-        {categorias.map(c => (
-          <button key={c} className={`btn btn-sm ${categoria === c ? 'btn-primary' : 'btn-outline'}`}
-            onClick={() => setCategoria(c)}>
-            {c || 'Todos'}
-          </button>
-        ))}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {categorias.map(c => (
+            <button key={c} className={`btn btn-sm ${categoria === c ? 'btn-primary' : 'btn-outline'}`}
+              onClick={() => setCategoria(c)}>
+              {c || 'Todos'}
+            </button>
+          ))}
+        </div>
+        <button className="btn btn-primary btn-sm" onClick={() => { setShowForm(s => !s); setError('') }}>
+          {showForm ? <X size={14} /> : <Plus size={14} />} {showForm ? 'Cancelar' : 'Novo Cuidado'}
+        </button>
       </div>
 
+      {showForm && (
+        <div className="card" style={{ marginBottom: 20, background: 'var(--moss-pale)' }}>
+          {error && <div className="alert alert-warning" style={{ marginBottom: 12 }}>{error}</div>}
+          <div className="form-row">
+            <div className="form-group">
+              <label className="form-label">Categoria *</label>
+              <select className="form-select" value={form.categoria} onChange={e => setForm(f => ({ ...f, categoria: e.target.value }))}>
+                {categorias.filter(c => c).map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Prioridade</label>
+              <select className="form-select" value={form.prioridade} onChange={e => setForm(f => ({ ...f, prioridade: e.target.value }))}>
+                <option value="alta">Alta</option>
+                <option value="media">Media</option>
+                <option value="baixa">Baixa</option>
+              </select>
+            </div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Titulo *</label>
+            <input className="form-input" value={form.titulo} onChange={e => setForm(f => ({ ...f, titulo: e.target.value }))} placeholder="Ex: Escovacao do pelo" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Descricao *</label>
+            <textarea className="form-textarea" value={form.descricao} onChange={e => setForm(f => ({ ...f, descricao: e.target.value }))} placeholder="Descreva o cuidado em detalhes..." />
+          </div>
+          <div className="form-group" style={{ maxWidth: 300 }}>
+            <label className="form-label">Frequencia</label>
+            <input className="form-input" value={form.frequencia} onChange={e => setForm(f => ({ ...f, frequencia: e.target.value }))} placeholder="Ex: diario, semanal, mensal" />
+          </div>
+          <button className="btn btn-primary" onClick={save} disabled={saving}>
+            {saving ? 'Salvando...' : '🩺 Salvar Cuidado'}
+          </button>
+        </div>
+      )}
+
       {cuidados.length === 0 ? (
-        <div className="empty-state"><div className="emoji">🩺</div><h3>Nenhum cuidado cadastrado para esta raça</h3></div>
+        <div className="empty-state"><div className="emoji">🩺</div><h3>Nenhum cuidado cadastrado para esta raca</h3><p>Clique em "Novo Cuidado" para adicionar.</p></div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {cuidados.map(c => (
@@ -522,6 +582,7 @@ function CuidadosTab({ racaId }) {
                     </div>
                   )}
                 </div>
+                <button className="btn btn-danger btn-sm" onClick={() => del(c.id)}>Remover</button>
               </div>
             </div>
           ))}
@@ -535,9 +596,16 @@ function CuidadosTab({ racaId }) {
 export default function PetDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [pet, setPet] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState('vacinas')
+  const [tab, setTab] = useState(searchParams.get('tab') || 'vacinas')
+
+  // Sincroniza a aba com a URL quando o query param muda
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    if (tabParam) setTab(tabParam)
+  }, [searchParams])
 
   useEffect(() => {
     petsAPI.get(id).then(r => setPet(r.data)).finally(() => setLoading(false))
@@ -548,8 +616,7 @@ export default function PetDetail() {
 
   const tabs = [
     { id: 'vacinas', label: '💉 Vacinas' },
-    { id: 'atividades', label: '🏃 Atividades' },
-    { id: 'passeios', label: '🗺️ Passeios' },
+    { id: 'atividades', label: '🏃 Atividades & Passeios' },
     { id: 'cuidados', label: '🩺 Cuidados' },
   ]
 
@@ -601,7 +668,6 @@ export default function PetDetail() {
         <div style={{ padding: 28 }}>
           {tab === 'vacinas' && <VacinasTab petId={id} />}
           {tab === 'atividades' && <AtividadesTab petId={id} />}
-          {tab === 'passeios' && <PasseiosTab petId={id} />}
           {tab === 'cuidados' && <CuidadosTab racaId={pet.raca?.id} />}
         </div>
       </div>
