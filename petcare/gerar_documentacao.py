@@ -79,15 +79,15 @@ def capture_screenshots():
     screens = [
         ("01_dashboard", "/", "Dashboard"),
         ("02_meus_pets", "/pets", "Meus Pets"),
-        ("04_vacinas", "/vacinas", "Controle Vacinal"),
+        ("04_vacinas", "/vacinas", "Controle Vacinal Global"),
         ("05_atividades", "/atividades", "Atividades & Passeios"),
         ("06_cuidados", "/cuidados", "Guia de Cuidados"),
     ]
 
     pet_id = ensure_test_data()
     pet_screens = [
-        ("03_pet_detalhe_vacinas", f"/pets/{pet_id}?tab=vacinas", "Detalhe do Pet - Vacinas"),
-        ("03b_pet_detalhe_atividades", f"/pets/{pet_id}?tab=atividades", "Detalhe do Pet - Atividades"),
+        ("03_pet_detalhe_cronograma", f"/pets/{pet_id}?tab=vacinas", "Detalhe do Pet - Cronograma Vacinal"),
+        ("03b_pet_detalhe_atividades", f"/pets/{pet_id}?tab=atividades", "Detalhe do Pet - Atividades & Passeios"),
         ("03c_pet_detalhe_cuidados", f"/pets/{pet_id}?tab=cuidados", "Detalhe do Pet - Cuidados"),
     ]
     screens.extend(pet_screens)
@@ -373,15 +373,34 @@ def generate_pdf(screenshots, diagram_path):
 
     info = [
         "Projeto de Pos-Graduacao em Servicos de Software",
+        "Instituto Maua de Tecnologia",
         "",
         "Stack: Python 3.11 + FastAPI | React 18 + Vite | PostgreSQL 15",
         "Infraestrutura: Docker Compose (3 servicos)",
         "",
-        "Versao: 1.0.0",
+        "Versao: 2.0.0",
     ]
     for line in info:
         pdf.cell(0, 7, line, align="C")
         pdf.ln(6)
+
+    pdf.ln(10)
+    pdf.set_font("Helvetica", "B", 13)
+    pdf.set_text_color(80, 60, 40)
+    pdf.cell(0, 9, "Alunos", align="C")
+    pdf.ln(11)
+
+    pdf.set_font("Helvetica", "", 11)
+    pdf.set_text_color(80, 80, 80)
+    alunos = [
+        ("Claudinei Manoel dos Santos", "25.80224-0"),
+        ("Cleber Luiz da Silva",        "25.80133-3"),
+    ]
+    for nome, ra in alunos:
+        pdf.cell(0, 6, nome, align="C"); pdf.ln(6)
+        pdf.set_text_color(120, 120, 120)
+        pdf.cell(0, 6, f"RA: {ra}", align="C"); pdf.ln(9)
+        pdf.set_text_color(80, 80, 80)
 
     # ── 1. VISAO GERAL ──
     pdf.add_page()
@@ -396,13 +415,17 @@ def generate_pdf(screenshots, diagram_path):
 
     pdf.section_title("Funcionalidades")
     features = [
-        "- CRUD completo de Pets com soft delete e busca por nome/raca",
+        "- CRUD completo de Pets com soft delete, edicao, exclusao e busca por nome/raca",
+        "- Upload de foto do pet (JPG/PNG/WebP, max 5MB) com volume Docker persistente",
         "- Cadastro de 14 racas pre-carregadas (caes e gatos)",
+        "- Cronograma vacinal personalizado por especie (21 vacinas recomendadas)",
+        "  com confirmacao de dose em 1 clique e barra de progresso por grupo",
         "- Controle vacinal com alertas de vencimento (janela de 30 dias)",
-        "- Registro de atividades fisicas com sugestoes por nivel da raca",
-        "- Registro de passeios com sugestoes de locais por porte do pet",
+        "- Aba unificada Atividades & Passeios com sugestoes por raca e porte",
         "- Guia de cuidados por raca (70 cuidados: alimentacao, higiene, saude, etc.)",
-        "- Dashboard com estatisticas e alertas globais",
+        "- Motor de recomendacoes IA (regras) com idade em anos e meses,",
+        "  atividades sugeridas, cuidados prioritarios e alertas (filhote/idoso)",
+        "- Dashboard com estatisticas, fotos dos pets e alertas globais",
         "- API REST documentada com Swagger automatico",
         "- 52 testes automatizados cobrindo todos os endpoints",
     ]
@@ -446,15 +469,17 @@ def generate_pdf(screenshots, diagram_path):
     pdf.chapter_title("3. Estrutura do Projeto")
     structure = (
         "petcare/\n"
-        "|-- docker-compose.yml          # Orquestra 3 servicos\n"
+        "|-- docker-compose.yml          # Orquestra 3 servicos + volumes\n"
         "|-- backend/\n"
         "|   |-- Dockerfile              # Python 3.11-slim + curl\n"
         "|   |-- requirements.txt        # Dependencias + pytest\n"
         "|   |-- pytest.ini              # Configuracao dos testes\n"
+        "|   |-- AI/\n"
+        "|   |   |-- recomendacoes.py    # Motor de regras (IA)\n"
         "|   |-- app/\n"
-        "|   |   |-- main.py             # FastAPI app + CORS + lifespan\n"
+        "|   |   |-- main.py             # FastAPI + CORS + StaticFiles\n"
         "|   |   |-- database.py         # Engine SQLAlchemy + get_db\n"
-        "|   |   |-- seed.py             # Seed: 14 racas + 70 cuidados\n"
+        "|   |   |-- seed.py             # Seed: 14 racas + 70 cuidados + 21 vacinas\n"
         "|   |   |-- models/models.py    # 6 modelos + enums\n"
         "|   |   |-- schemas/schemas.py  # DTOs Pydantic\n"
         "|   |   |-- routers/            # 6 routers REST\n"
@@ -471,7 +496,11 @@ def generate_pdf(screenshots, diagram_path):
         "    |-- src/\n"
         "        |-- App.jsx             # Shell + Sidebar + Rotas\n"
         "        |-- services/api.js     # Axios centralizado\n"
-        "        |-- pages/              # 6 paginas React"
+        "        |-- pages/              # 6 paginas React\n"
+        "\n"
+        "Volumes Docker:\n"
+        "  - petcare_pgdata   (PostgreSQL)\n"
+        "  - petcare_uploads  (fotos dos pets)"
     )
     pdf.set_font("Courier", "", 9)
     pdf.set_text_color(50, 50, 50)
@@ -502,12 +531,15 @@ def generate_pdf(screenshots, diagram_path):
 
     endpoints = [
         ("Pets", [
-            "GET    /pets/?ativo=true     Listar pets (ativos/inativos)",
-            "POST   /pets/               Criar pet",
-            "GET    /pets/{id}            Buscar pet por ID",
-            "PUT    /pets/{id}            Atualizar pet",
-            "DELETE /pets/{id}            Soft delete do pet",
-            "GET    /pets/{id}/dashboard  Dashboard do pet",
+            "GET    /pets/?ativo=true         Listar pets (ativos/inativos)",
+            "POST   /pets/                   Criar pet",
+            "GET    /pets/{id}                Buscar pet por ID",
+            "PUT    /pets/{id}                Atualizar pet",
+            "DELETE /pets/{id}                Soft delete do pet",
+            "POST   /pets/{id}/photo          Upload de foto (multipart)",
+            "DELETE /pets/{id}/photo          Remover foto",
+            "GET    /pets/{id}/recomendacoes  Recomendacoes IA (motor de regras)",
+            "GET    /pets/{id}/dashboard      Dashboard do pet",
         ]),
         ("Racas", [
             "GET    /racas/?especie=cao   Listar racas (filtro por especie)",
@@ -516,28 +548,31 @@ def generate_pdf(screenshots, diagram_path):
             "PUT    /racas/{id}           Atualizar raca",
         ]),
         ("Vacinas", [
-            "GET    /vacinas/pet/{id}     Vacinas de um pet",
-            "GET    /vacinas/pendentes    Vacinas vencidas/proximas (30d)",
-            "POST   /vacinas/            Registrar vacina",
-            "PUT    /vacinas/{id}         Atualizar vacina",
-            "DELETE /vacinas/{id}         Remover vacina",
+            "GET    /vacinas/pet/{id}                Vacinas de um pet",
+            "GET    /vacinas/pendentes               Vacinas vencidas/proximas (30d)",
+            "GET    /vacinas/cronograma/{pet_id}     Cronograma personalizado",
+            "POST   /vacinas/confirmar/{pet_id}/{rec_id}  Confirmar dose do cronograma",
+            "POST   /vacinas/                        Registrar vacina manual",
+            "PUT    /vacinas/{id}                    Atualizar vacina",
+            "DELETE /vacinas/{id}                    Remover vacina",
         ]),
-        ("Atividades", [
-            "GET    /atividades/pet/{id}       Atividades de um pet",
-            "GET    /atividades/sugestoes/{id}  Sugestoes por nivel",
-            "POST   /atividades/               Registrar atividade",
+        ("Atividades & Passeios", [
+            "GET    /atividades/pet/{id}        Atividades de um pet",
+            "GET    /atividades/sugestoes/{id}  Sugestoes por nivel da raca",
+            "POST   /atividades/                Registrar atividade",
             "DELETE /atividades/{id}            Remover atividade",
-        ]),
-        ("Passeios", [
-            "GET    /passeios/pet/{id}       Passeios de um pet",
-            "GET    /passeios/sugestoes/{id}  Sugestoes por porte",
-            "POST   /passeios/               Registrar passeio",
-            "DELETE /passeios/{id}            Remover passeio",
+            "GET    /passeios/pet/{id}          Passeios de um pet",
+            "GET    /passeios/sugestoes/{id}    Sugestoes por porte do pet",
+            "POST   /passeios/                  Registrar passeio",
+            "DELETE /passeios/{id}              Remover passeio",
         ]),
         ("Cuidados", [
             "GET    /cuidados/raca/{id}  Cuidados de uma raca",
             "POST   /cuidados/           Criar cuidado",
             "DELETE /cuidados/{id}        Remover cuidado",
+        ]),
+        ("Static Files", [
+            "GET    /uploads/pets/{filename}  Servir fotos dos pets",
         ]),
     ]
 
@@ -550,19 +585,69 @@ def generate_pdf(screenshots, diagram_path):
             pdf.ln(4.5)
         pdf.ln(4)
 
-    # ── 6. PRINTS DE TELA ──
+    # ── 6. RECURSOS DESTACADOS ──
     pdf.add_page()
-    pdf.chapter_title("6. Telas da Aplicacao")
+    pdf.chapter_title("6. Recursos Destacados")
+
+    pdf.section_title("Cronograma Vacinal Inteligente")
+    pdf.body_text(
+        "O sistema inclui um cronograma vacinal personalizado baseado na especie, data de "
+        "nascimento e vacinas ja aplicadas. Sao 21 vacinas recomendadas pre-cadastradas:\n\n"
+        "Caes (V10, Antirrabica, Bordetella, Giardiase):\n"
+        "  - V10: 3 doses (6, 9 e 12 semanas) + reforco anual\n"
+        "  - Antirrabica: 12 semanas + reforco anual (obrigatoria por lei)\n"
+        "  - Bordetella: 8 e 12 semanas + reforco anual\n\n"
+        "Gatos (V4, Antirrabica, FeLV):\n"
+        "  - V4: 3 doses (8, 12 e 16 semanas) + reforco anual\n"
+        "  - Antirrabica: 16 semanas + reforco anual (obrigatoria por lei)\n"
+        "  - FeLV: 2 doses (9 e 13 semanas) + reforco anual\n\n"
+        "O usuario pode confirmar a aplicacao de cada dose com 1 clique. O sistema calcula "
+        "automaticamente a data prevista de cada dose baseada na data de nascimento do pet."
+    )
+
+    pdf.section_title("Motor de Recomendacoes IA (Rule-Based)")
+    pdf.body_text(
+        "Modulo AI/recomendacoes.py que analisa o pet e retorna recomendacoes personalizadas "
+        "usando um motor de regras deterministico:\n\n"
+        "Regras aplicadas:\n"
+        "  1. Nivel de atividade da raca (alto/medio/baixo) define frequencia e intensidade\n"
+        "  2. Pet idoso (>75% da expectativa de vida): reduz intensidade + alerta\n"
+        "  3. Porte grande: adiciona cuidado com articulacoes\n"
+        "  4. Filhote (<1 ano): alerta de socializacao + treinamento basico\n\n"
+        "Saida: frequencia semanal, intensidade, atividades sugeridas, cuidados "
+        "prioritarios e alertas. Idade calculada em anos e meses (ex: '1 ano e 2 meses', '4 meses').\n\n"
+        "Endpoint: GET /api/v1/pets/{id}/recomendacoes"
+    )
+
+    pdf.section_title("Upload e Armazenamento de Fotos")
+    pdf.body_text(
+        "Upload de foto do pet via multipart/form-data com validacao de tipo (JPG, PNG, WebP) "
+        "e tamanho (max 5MB). Arquivos armazenados em volume Docker persistente "
+        "(petcare_uploads) e servidos via FastAPI StaticFiles em /uploads/pets/.\n\n"
+        "Fotos exibidas no Dashboard, lista de Pets e header do PetDetail. Fallback para "
+        "emoji quando nao ha foto cadastrada."
+    )
+
+    pdf.section_title("70 Cuidados Pre-cadastrados")
+    pdf.body_text(
+        "Para cada uma das 14 racas, o sistema ja vem com 5 cuidados especificos "
+        "distribuidos em 5 categorias: alimentacao, higiene, saude, comportamento e exercicio. "
+        "Total de 70 cuidados que podem ser consultados no Guia de Cuidados ou via perfil do pet."
+    )
+
+    # ── 7. PRINTS DE TELA ──
+    pdf.add_page()
+    pdf.chapter_title("7. Telas da Aplicacao")
 
     screen_labels = {
-        "01_dashboard": "Dashboard - Visao geral com stats e alertas de vacinas",
-        "02_meus_pets": "Meus Pets - Listagem com busca e cadastro",
-        "03_pet_detalhe_vacinas": "Detalhe do Pet - Aba Vacinas (historico vacinal)",
-        "03b_pet_detalhe_atividades": "Detalhe do Pet - Aba Atividades & Passeios",
-        "03c_pet_detalhe_cuidados": "Detalhe do Pet - Aba Cuidados",
-        "04_vacinas": "Controle Vacinal - Vacinas atrasadas e proximas",
-        "05_atividades": "Atividades - Selecao de pet",
-        "06_cuidados": "Guia de Cuidados - Cuidados por raca",
+        "01_dashboard": "Dashboard - Visao geral com stats, fotos dos pets e alertas de vacinas",
+        "02_meus_pets": "Meus Pets - Listagem com busca, cadastro e upload de foto",
+        "03_pet_detalhe_cronograma": "Detalhe do Pet - Recomendacoes IA + Cronograma Vacinal",
+        "03b_pet_detalhe_atividades": "Detalhe do Pet - Atividades & Passeios (aba unificada)",
+        "03c_pet_detalhe_cuidados": "Detalhe do Pet - Cuidados por raca com cadastro",
+        "04_vacinas": "Controle Vacinal Global - Vacinas atrasadas e proximas (30 dias)",
+        "05_atividades": "Atividades & Passeios - Selecao de pet",
+        "06_cuidados": "Guia de Cuidados - Selecao de raca com 5 cuidados cadastrados",
         "07_swagger": "Swagger - Documentacao interativa da API",
     }
 
@@ -571,9 +656,9 @@ def generate_pdf(screenshots, diagram_path):
         caption = screen_labels.get(name, name)
         pdf.add_screenshot(shot, caption)
 
-    # ── 7. COMO EXECUTAR ──
+    # ── 8. COMO EXECUTAR ──
     pdf.add_page()
-    pdf.chapter_title("7. Como Executar")
+    pdf.chapter_title("8. Como Executar")
 
     pdf.section_title("Pre-requisitos")
     pdf.body_text("- Docker e Docker Compose instalados\n- Portas 3000, 5432 e 8000 disponiveis")
