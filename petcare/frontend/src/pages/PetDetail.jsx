@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Syringe, Dumbbell, MapPin, Heart, Plus, X, Lightbulb, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Syringe, Dumbbell, MapPin, Heart, Plus, X, Lightbulb, Pencil, Trash2, Sparkles, AlertTriangle } from 'lucide-react'
 import { petsAPI, vacinasAPI, atividadesAPI, passeiosAPI, cuidadosAPI, API_URL } from '../services/api'
 import { format, differenceInYears, differenceInMonths, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -796,6 +796,7 @@ export default function PetDetail() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [pet, setPet] = useState(null)
+  const [recomendacao, setRecomendacao] = useState(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState(searchParams.get('tab') || 'vacinas')
   const [showEdit, setShowEdit] = useState(false)
@@ -806,7 +807,12 @@ export default function PetDetail() {
   }, [searchParams])
 
   const loadPet = () => {
-    petsAPI.get(id).then(r => setPet(r.data)).finally(() => setLoading(false))
+    Promise.all([
+      petsAPI.get(id),
+      petsAPI.recomendacoes(id).catch(() => ({ data: null })),
+    ])
+      .then(([p, r]) => { setPet(p.data); setRecomendacao(r.data) })
+      .finally(() => setLoading(false))
   }
 
   useEffect(loadPet, [id])
@@ -881,6 +887,86 @@ export default function PetDetail() {
           )}
         </div>
       </div>
+
+      {/* Recomendacoes IA */}
+      {recomendacao && (
+        <div className="card" style={{
+          marginBottom: 28,
+          background: 'linear-gradient(135deg, var(--moss-pale) 0%, var(--sky-pale) 100%)',
+          border: 'none',
+        }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 14 }}>
+            <Sparkles size={20} style={{ color: 'var(--moss)' }} />
+            <strong style={{ fontFamily: 'var(--font-display)', color: 'var(--bark)', fontSize: '1.05rem' }}>
+              Recomendacoes Personalizadas
+            </strong>
+            <span className="badge badge-green" style={{ marginLeft: 'auto' }}>
+              perfil: {recomendacao.perfil_ia || 'padrao'}
+            </span>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 14 }}>
+            <div style={{ background: 'white', padding: '10px 14px', borderRadius: 8 }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Frequencia</div>
+              <div style={{ fontWeight: 600, color: 'var(--bark)', marginTop: 2 }}>{recomendacao.recomendacoes.frequencia_semanal}</div>
+            </div>
+            <div style={{ background: 'white', padding: '10px 14px', borderRadius: 8 }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Intensidade</div>
+              <div style={{ fontWeight: 600, color: 'var(--bark)', marginTop: 2, textTransform: 'capitalize' }}>{recomendacao.recomendacoes.intensidade}</div>
+            </div>
+            <div style={{ background: 'white', padding: '10px 14px', borderRadius: 8 }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-soft)', textTransform: 'uppercase', letterSpacing: 0.5 }}>Idade</div>
+              <div style={{ fontWeight: 600, color: 'var(--bark)', marginTop: 2 }}>
+                {(() => {
+                  const a = recomendacao.idade_anos_detalhe
+                  const m = recomendacao.idade_meses_detalhe
+                  const partes = []
+                  if (a > 0) partes.push(`${a} ${a === 1 ? 'ano' : 'anos'}`)
+                  if (m > 0) partes.push(`${m} ${m === 1 ? 'mes' : 'meses'}`)
+                  return partes.length ? partes.join(' e ') : 'menos de 1 mes'
+                })()}
+              </div>
+            </div>
+          </div>
+
+          {recomendacao.recomendacoes.atividades_sugeridas.length > 0 && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-soft)', marginBottom: 6 }}>
+                🏃 <strong>Atividades sugeridas:</strong>
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {recomendacao.recomendacoes.atividades_sugeridas.map((a, i) => (
+                  <span key={i} className="badge badge-green">{a}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {recomendacao.recomendacoes.cuidados_prioritarios.length > 0 && (
+            <div style={{ marginBottom: 10 }}>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-soft)', marginBottom: 6 }}>
+                🩺 <strong>Cuidados prioritarios:</strong>
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 20, fontSize: '0.85rem', color: 'var(--bark)', lineHeight: 1.6 }}>
+                {recomendacao.recomendacoes.cuidados_prioritarios.map((c, i) => (
+                  <li key={i}>{c}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {recomendacao.recomendacoes.alertas.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
+              {recomendacao.recomendacoes.alertas.map((a, i) => (
+                <div key={i} className="alert alert-warning" style={{ margin: 0 }}>
+                  <AlertTriangle size={15} />
+                  <span>{a}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>

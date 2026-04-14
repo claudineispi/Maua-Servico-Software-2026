@@ -7,7 +7,8 @@ from datetime import date, timedelta
 
 from app.database import get_db
 from app.models.models import Pet, Vacina, Atividade, Passeio, StatusVacinaEnum
-from app.schemas.schemas import PetCreate, PetUpdate, PetResponse, DashboardPet
+from app.schemas.schemas import PetCreate, PetUpdate, PetResponse, DashboardPet, RecomendacaoResponse
+from AI.recomendacoes import gerar_recomendacoes
 
 router = APIRouter()
 
@@ -103,6 +104,17 @@ def deletar_foto(pet_id: int, db: Session = Depends(get_db)):
             os.remove(old_path)
         pet.foto_url = None
         db.commit()
+
+
+@router.get("/{pet_id}/recomendacoes", response_model=RecomendacaoResponse)
+def recomendacoes_pet(pet_id: int, db: Session = Depends(get_db)):
+    """Gera recomendações personalizadas de atividades e cuidados via motor de regras."""
+    pet = db.query(Pet).filter(Pet.id == pet_id, Pet.ativo == True).first()
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet não encontrado")
+    if not pet.raca:
+        raise HTTPException(status_code=400, detail="Pet sem raça cadastrada")
+    return gerar_recomendacoes(pet, pet.raca)
 
 
 @router.get("/{pet_id}/dashboard", response_model=DashboardPet)

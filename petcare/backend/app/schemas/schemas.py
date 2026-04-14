@@ -152,6 +152,26 @@ class CuidadoResponse(CuidadoBase):
 
 
 # ──────────────────────────────────────────────
+# RECOMENDACOES IA (motor baseado em regras)
+# ──────────────────────────────────────────────
+class RecomendacoesPayload(BaseModel):
+    frequencia_semanal: str
+    intensidade: str
+    atividades_sugeridas: List[str]
+    cuidados_prioritarios: List[str]
+    alertas: List[str]
+
+
+class RecomendacaoResponse(BaseModel):
+    pet_id: int
+    idade_anos: int
+    idade_anos_detalhe: int
+    idade_meses_detalhe: int
+    perfil_ia: Optional[str] = None
+    recomendacoes: RecomendacoesPayload
+
+
+# ──────────────────────────────────────────────
 # VACINA RECOMENDADA (cronograma)
 # ──────────────────────────────────────────────
 class VacinaRecomendadaResponse(BaseModel):

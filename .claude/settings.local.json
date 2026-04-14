@@ -11,7 +11,14 @@
       "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); print\\(f'Cuidados Persa: {len\\(data\\)}'\\); [print\\(f'  [{c[\\\\\"categoria\\\\\"]}] {c[\\\\\"titulo\\\\\"]}'\\) for c in data]\")",
       "Bash(curl -s http://localhost:8000/api/v1/racas/__TRACKED_VAR__)",
       "Bash(pip --version)",
-      "Bash(python gerar_documentacao.py)"
+      "Bash(python gerar_documentacao.py)",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/pets/1/photo -F \"file=@C:/Users/CLAUDI~1/AppData/Local/Temp/test_pet.jpg;type=image/jpeg\")",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'foto_url: {d.get\\(\\\\\"foto_url\\\\\"\\)}'\\)\")",
+      "Bash(python -c \"import sys,json; print\\(f'Racas: {len\\(json.load\\(sys.stdin\\)\\)}'\\)\")",
+      "Bash(curl -s -X POST http://localhost:8000/api/v1/pets/ -H \"Content-Type: application/json\" -d '{\"nome\":\"Rex\",\"raca_id\":1,\"data_nascimento\":\"2025-12-01\",\"sexo\":\"macho\"}')",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f'Pet criado: {d[\\\\\"nome\\\\\"]} \\(id={d[\\\\\"id\\\\\"]}\\)'\\)\")",
+      "Bash(curl -s http://localhost:8000/api/v1/vacinas/cronograma/1)",
+      "Bash(python -c ':*)"
     ]
   }
 }

@@ -15,6 +15,7 @@ export const petsAPI = {
   update: (id, data) => api.put(`/api/v1/pets/${id}`, data),
   delete: (id) => api.delete(`/api/v1/pets/${id}`),
   dashboard: (id) => api.get(`/api/v1/pets/${id}/dashboard`),
+  recomendacoes: (id) => api.get(`/api/v1/pets/${id}/recomendacoes`),
   uploadPhoto: (id, file) => {
     const formData = new FormData()
     formData.append('file', file)
